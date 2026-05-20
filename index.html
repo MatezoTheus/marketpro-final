@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarketPro - Gestão e Análise</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0f172a',
+                        darkCard: '#1e293b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; transition: background-color 0.3s; }
+        .chart-container { position: relative; width: 100%; height: 320px; }
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .view-section { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-darkBg text-slate-900 dark:text-slate-100 h-screen overflow-hidden flex transition-colors duration-300">
+
+    <!-- Botão de Alternância de Tema (Canto Superior Esquerdo) -->
+    <div class="fixed top-4 left-4 z-[60]">
+        <button onclick="app.toggleDarkMode()" class="p-3 rounded-full bg-white dark:bg-slate-800 shadow-lg border border-slate-200 dark:border-slate-700 hover:scale-110 transition-all text-xl" title="Alternar Modo Claro/Escuro">
+            <span id="theme-icon">🌙</span>
+        </button>
+    </div>
+    
+    <!-- Menu Lateral -->
+    <aside class="w-72 bg-slate-900 text-white flex-col hidden md:flex shadow-2xl z-20 relative border-r border-slate-800">
+        <div class="p-8 border-b border-slate-800">
+            <h1 class="text-2xl font-bold text-emerald-400 flex items-center ml-10 md:ml-0"><span class="mr-3">🏪</span> MarketPro</h1>
+            <p class="text-slate-400 text-[10px] mt-2 uppercase tracking-widest font-bold">Inovação em Varejo</p>
+        </div>
+        <nav class="flex-1 p-4 space-y-1 overflow-y-auto no-scrollbar">
+            <button onclick="app.navigate('dashboard')" class="nav-btn w-full flex items-center p-3 rounded-xl hover:bg-slate-800 transition-all text-slate-400 font-medium" data-target="dashboard">
+                <span class="w-8 text-xl">📊</span> Painel de Controle
+            </button>
+            <button onclick="app.navigate('produtos')" class="nav-btn w-full flex items-center p-3 rounded-xl hover:bg-slate-800 transition-all text-slate-400 font-medium" data-target="produtos">
+                <span class="w-8 text-xl">📦</span> Catálogo & Descontos
+            </button>
+            <button onclick="app.navigate('stock')" class="nav-btn w-full flex items-center p-3 rounded-xl hover:bg-slate-800 transition-all text-slate-400 font-medium" data-target="stock">
+                <span class="w-8 text-xl">🔄</span> Gestão de Stock
+            </button>
+            <button onclick="app.navigate('clientes')" class="nav-btn w-full flex items-center p-3 rounded-xl hover:bg-slate-800 transition-all text-slate-400 font-medium" data-target="clientes">
+                <span class="w-8 text-xl">👥</span> Clientes
+            </button>
+            <button onclick="app.navigate('pdv')" class="nav-btn w-full flex items-center p-3 rounded-xl hover:bg-slate-800 transition-all text-slate-400 font-medium" data-target="pdv">
+                <span class="w-8 text-xl">🛒</span> Ponto de Venda
+            </button>
+            <button onclick="app.navigate('fidelidade')" class="nav-btn w-full flex items-center p-3 rounded-xl hover:bg-slate-800 transition-all text-slate-400 font-medium" data-target="fidelidade">
+                <span class="w-8 text-xl">💎</span> Fidelidade & Cashback
+            </button>
+            <button onclick="app.navigate('analytics')" class="nav-btn w-full flex items-center p-3 rounded-xl hover:bg-slate-800 transition-all text-slate-400 font-medium" data-target="analytics">
+                <span class="w-8 text-xl">📈</span> Relatório & Analytics
+            </button>
+            <div class="pt-6 mt-4 border-t border-slate-800">
+                <button onclick="app.navigate('historico')" class="nav-btn w-full flex items-center p-3 rounded-xl hover:bg-slate-800 transition-all text-slate-400 font-medium" data-target="historico">
+                    <span class="w-8 text-xl">📜</span> Transações
+                </button>
+            </div>
+        </nav>
+    </aside>
+
+    <!-- Área Principal -->
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        <header class="h-16 bg-white dark:bg-darkCard border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 md:px-10 shrink-0 z-10 transition-colors">
+            <div class="flex items-center gap-4 ml-12 md:ml-0">
+                <h2 id="view-title" class="text-xl font-bold text-slate-800 dark:text-white tracking-tight">Painel de Controle</h2>
+            </div>
+            <div class="hidden sm:block text-xs text-slate-500 dark:text-slate-400 font-medium bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-full" id="current-timestamp"></div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-8">
+            
+            <!-- VIEW: DASHBOARD -->
+            <section id="view-dashboard" class="view-section space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Faturamento Líquido</p>
+                        <h3 class="text-3xl font-black mt-2 text-emerald-600 dark:text-emerald-400" id="dash-faturacao">R$ 0,00</h3>
+                    </div>
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Vendas</p>
+                        <h3 class="text-3xl font-black mt-2 text-slate-800 dark:text-white" id="dash-vendas-count">0</h3>
+                    </div>
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Total Economizado</p>
+                        <h3 class="text-3xl font-black mt-2 text-blue-500 dark:text-blue-400" id="dash-economia">R$ 0,00</h3>
+                        <p class="text-[10px] text-slate-400 mt-1">Via descontos aplicados</p>
+                    </div>
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-red-100 dark:border-red-900 transition-colors">
+                        <p class="text-red-500 dark:text-red-400 text-sm font-bold">Alertas de Stock</p>
+                        <h3 class="text-3xl font-black mt-2 text-red-600 dark:text-red-400" id="dash-alertas">0</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                    <h4 class="text-lg font-bold mb-6 text-slate-800 dark:text-white">Performance de Vendas</h4>
+                    <div class="chart-container"><canvas id="mainChart"></canvas></div>
+                </div>
+            </section>
+
+            <!-- VIEW: PRODUTOS -->
+            <section id="view-produtos" class="view-section hidden space-y-6">
+                <div class="bg-white dark:bg-darkCard rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                    <div class="p-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800"><h3 class="font-bold">➕ Novo Produto</h3></div>
+                    <form id="prod-form" class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div class="md:col-span-1">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome</label>
+                            <input type="text" id="p-nome" required class="w-full bg-transparent border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Preço (R$)</label>
+                            <input type="number" id="p-preco" step="0.01" required class="w-full bg-transparent border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2">Desconto (%)</label>
+                            <input type="number" id="p-desconto" min="0" max="99" value="0" class="w-full bg-transparent border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 outline-none focus:border-emerald-500">
+                        </div>
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition-colors">Salvar</button>
+                    </form>
+                </div>
+                <div class="bg-white dark:bg-darkCard rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                    <table class="w-full text-left whitespace-nowrap">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                            <tr>
+                                <th class="p-4 text-xs font-bold text-slate-500 uppercase">Produto</th>
+                                <th class="p-4 text-xs font-bold text-slate-500 uppercase">Preço Orig.</th>
+                                <th class="p-4 text-xs font-bold text-slate-500 uppercase">Desconto</th>
+                                <th class="p-4 text-xs font-bold text-slate-500 uppercase">Preço Final</th>
+                                <th class="p-4 text-xs font-bold text-slate-500 uppercase text-center">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-produtos" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- VIEW: STOCK -->
+            <section id="view-stock" class="view-section hidden space-y-6">
+                <div class="bg-white dark:bg-darkCard rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                    <table class="w-full text-left whitespace-nowrap">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                            <tr>
+                                <th class="p-4 text-xs font-bold text-slate-500 uppercase">Produto</th>
+                                <th class="p-4 text-xs font-bold text-slate-500 uppercase text-center">Qtd. Atual</th>
+                                <th class="p-4 text-xs font-bold text-slate-500 uppercase">Ajuste / Alterar Desconto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-stock" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- VIEW: CLIENTES -->
+            <section id="view-clientes" class="view-section hidden space-y-6">
+                <div class="bg-white dark:bg-darkCard rounded-2xl border border-slate-200 dark:border-slate-800 p-6 transition-colors">
+                    <form id="cli-form" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div><label class="block text-[10px] font-bold text-slate-500 mb-2">NOME</label><input type="text" id="c-nome" required class="w-full bg-transparent border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 outline-none"></div>
+                        <div><label class="block text-[10px] font-bold text-slate-500 mb-2">E-MAIL</label><input type="email" id="c-email" required class="w-full bg-transparent border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 outline-none"></div>
+                        <button type="submit" class="bg-blue-600 text-white font-bold py-2.5 rounded-lg">Registrar</button>
+                    </form>
+                </div>
+                <div class="bg-white dark:bg-darkCard rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                    <div id="cont-clientes" class="grid grid-cols-1 divide-y divide-slate-100 dark:divide-slate-800"></div>
+                </div>
+            </section>
+
+            <!-- VIEW: PDV (Ponto de Venda) -->
+            <section id="view-pdv" class="view-section hidden h-full">
+                <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-12rem)]">
+                    <div class="flex-1 bg-white dark:bg-darkCard rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-colors">
+                        <div id="pdv-catalogo" class="p-5 grid grid-cols-2 xl:grid-cols-3 gap-4 overflow-y-auto content-start"></div>
+                    </div>
+                    <div class="w-full lg:w-96 bg-slate-900 text-white rounded-2xl shadow-xl flex flex-col h-full overflow-hidden border border-slate-800">
+                        <div class="p-6 bg-slate-950 border-b border-slate-800">
+                            <h4 class="font-bold flex items-center justify-between"><span>🛒 Carrinho</span><span id="cart-count" class="bg-emerald-500 px-2 py-1 rounded text-xs font-bold">0</span></h4>
+                        </div>
+                        <div id="cart-items" class="flex-1 p-6 space-y-3 overflow-y-auto no-scrollbar"></div>
+                        
+                        <div class="p-6 bg-slate-950 border-t border-slate-800 space-y-4">
+                            <div class="flex justify-between text-xl font-bold"><span>Total</span><span id="cart-total" class="text-emerald-400">R$ 0,00</span></div>
+                            
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2">Cliente Associado</label>
+                                <select id="cart-cliente" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3 text-sm outline-none focus:border-emerald-500"></select>
+                            </div>
+
+                            <!-- Opções de Fidelidade Dinâmicas -->
+                            <div id="pdv-fidelidade-opcoes" class="hidden p-4 bg-slate-900 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-3">
+                                <p class="font-bold text-emerald-400 flex items-center gap-1">💎 Benefícios de Fidelidade:</p>
+                                <div class="flex items-center justify-between">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" id="usar-pontos-cb" onchange="app.recalcularTotalPDV()" class="accent-emerald-500 rounded">
+                                        Usar Pontos (<span id="pdv-pontos-disponiveis">0</span> pts)
+                                    </label>
+                                    <span class="text-blue-400 font-bold" id="pdv-pontos-valor">- R$ 0,00</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" id="usar-cashback-cb" onchange="app.recalcularTotalPDV()" class="accent-emerald-500 rounded">
+                                        Usar Cashback
+                                    </label>
+                                    <span class="text-blue-400 font-bold" id="pdv-cashback-valor">- R$ 0,00</span>
+                                </div>
+                            </div>
+
+                            <button onclick="app.finalizarVenda()" id="btn-finalizar" disabled class="w-full bg-emerald-500 py-4 rounded-xl font-bold disabled:opacity-30">Confirmar Venda</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: FIDELIDADE -->
+            <section id="view-fidelidade" class="view-section hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <h4 class="text-lg font-bold mb-3 text-slate-800 dark:text-white flex items-center gap-2"><span>💎</span> Regras do Sistema</h4>
+                        <ul class="text-sm space-y-2 text-slate-600 dark:text-slate-400">
+                            <li>⭐ <strong>Acúmulo de Pontos:</strong> R$ 1,00 gasto = 1 ponto acumulado.</li>
+                            <li>🎁 <strong>Resgate de Pontos:</strong> A cada 100 pontos acumulados, resgate R$ 10,00 de desconto.</li>
+                            <li>💰 <strong>Cashback de Compra:</strong> 5% do valor líquido pago retorna como saldo de cashback para compras futuras.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors flex flex-col justify-center">
+                        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Total Cashback Distribuído</p>
+                        <h3 class="text-3xl font-black mt-1 text-emerald-600 dark:text-emerald-400" id="fid-total-cashback">R$ 0,00</h3>
+                        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium mt-4">Total Pontos Acumulados</p>
+                        <h3 class="text-2xl font-black mt-1 text-blue-500 dark:text-blue-400" id="fid-total-pontos">0 pts</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-darkCard rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                    <div class="p-5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                        <h3 class="font-bold text-slate-800 dark:text-white">Clientes e Saldos de Fidelidade</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                                <tr>
+                                    <th class="p-4 text-xs font-bold text-slate-500 uppercase">Cliente</th>
+                                    <th class="p-4 text-xs font-bold text-slate-500 uppercase">Total Comprado</th>
+                                    <th class="p-4 text-xs font-bold text-slate-500 uppercase">Pontos Acumulados</th>
+                                    <th class="p-4 text-xs font-bold text-slate-500 uppercase">Desconto por Pontos</th>
+                                    <th class="p-4 text-xs font-bold text-slate-500 uppercase">Saldo Cashback</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-fidelidade" class="divide-y divide-slate-100 dark:divide-slate-800 animate-fade-in"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: ANALYTICS (Relatório Inteligente / Analytics) -->
+            <section id="view-analytics" class="view-section hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Ticket Médio das Vendas</p>
+                        <h3 class="text-3xl font-black mt-2 text-emerald-600 dark:text-emerald-400" id="analytics-ticket-medio">R$ 0,00</h3>
+                        <p class="text-[10px] text-slate-400 mt-1">Gasto médio por transação efetuada</p>
+                    </div>
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Identificação de Clientes</p>
+                        <h3 class="text-3xl font-black mt-2 text-blue-500 dark:text-blue-400" id="analytics-taxa-identificacao">0%</h3>
+                        <p class="text-[10px] text-slate-400 mt-1">Percentual de vendas associadas a clientes</p>
+                    </div>
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Custo Operacional de Fidelidade</p>
+                        <h3 class="text-3xl font-black mt-2 text-purple-600 dark:text-purple-400" id="analytics-custo-fidelidade">R$ 0,00</h3>
+                        <p class="text-[10px] text-slate-400 mt-1">Soma de economias com cashback e pontos</p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 dark:from-slate-800/40 dark:to-slate-800/20 p-6 rounded-2xl border border-emerald-500/20 dark:border-slate-800 transition-colors">
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-2xl">⚡</span>
+                        <h4 class="text-lg font-bold text-slate-800 dark:text-emerald-400">Insights Gerados Inteligentes (IA)</h4>
+                    </div>
+                    <ul id="analytics-insights" class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                        <!-- Conteúdo preenchido dinamicamente via JavaScript -->
+                    </ul>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <h4 class="text-base font-bold mb-4 text-slate-800 dark:text-white">Unidades Vendidas por Produto</h4>
+                        <div class="chart-container"><canvas id="analyticsProductsChart"></canvas></div>
+                    </div>
+                    <div class="bg-white dark:bg-darkCard p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                        <h4 class="text-base font-bold mb-4 text-slate-800 dark:text-white">Análise de Receita vs Margem de Fidelidade</h4>
+                        <div class="chart-container"><canvas id="analyticsFinancialsChart"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW: HISTORICO -->
+            <section id="view-historico" class="view-section hidden space-y-6">
+                <div class="bg-white dark:bg-darkCard p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-colors">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input id="filtro-cliente" type="text" placeholder="Filtrar por cliente..." class="bg-transparent border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2 outline-none">
+                        <button onclick="app.exportarCSV()" class="bg-slate-800 text-white rounded-lg px-4 py-2 font-bold hover:bg-slate-700 transition-colors">Exportar Relatório CSV</button>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-darkCard rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-colors">
+                    <table class="w-full text-left whitespace-nowrap">
+                        <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                            <tr><th class="p-4 text-xs font-bold text-slate-500 uppercase">Data</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Cliente</th><th class="p-4 text-xs font-bold text-slate-500 uppercase">Total</th></tr>
+                        </thead>
+                        <tbody id="lista-vendas" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script>
+        const state = {
+            currentView: 'dashboard',
+            isDark: false,
+            produtos: [
+                { id: 1, nome: "Pão de Forma", preco: 5.50, desconto: 10, stock: 45 },
+                { id: 2, nome: "Leite 1L", preco: 4.80, desconto: 0, stock: 12 },
+                { id: 3, nome: "Maçã (Kg)", preco: 8.99, desconto: 15, stock: 8 }
+            ],
+            clientes: [
+                { id: 1, nome: "João Silva", email: "joao@email.com", pontos: 120, cashback: 6.00, totalGasto: 120.00 }
+            ],
+            carrinho: [],
+            vendas: [
+                {
+                    id: 1,
+                    data: "18/05/2026 14:32:10",
+                    cliente: "João Silva",
+                    total: 85.50,
+                    economia: 15.00,
+                    itensDetalhados: [
+                        { id: 1, nome: "Pão de Forma", preco: 4.95, qtd: 3 },
+                        { id: 3, nome: "Maçã (Kg)", preco: 7.64, qtd: 2 },
+                        { id: 2, nome: "Leite 1L", preco: 4.80, qtd: 10 }
+                    ]
+                },
+                {
+                    id: 2,
+                    data: "19/05/2026 10:15:22",
+                    cliente: "Consumidor Final",
+                    total: 45.80,
+                    economia: 5.00,
+                    itensDetalhados: [
+                        { id: 1, nome: "Pão de Forma", preco: 4.95, qtd: 2 },
+                        { id: 2, nome: "Leite 1L", preco: 4.80, qtd: 4 }
+                    ]
+                }
+            ],
+            chartInstance: null,
+            chartProductsInstance: null,
+            chartFinancialsInstance: null
+        };
+
+        const formatCur = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+
+        const app = {
+            init() {
+                document.getElementById('current-timestamp').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+                document.getElementById('prod-form').onsubmit = this.handleProdAdd.bind(this);
+                document.getElementById('cli-form').onsubmit = this.handleCliAdd.bind(this);
+                document.getElementById('filtro-cliente').oninput = this.renderHistorico.bind(this);
+                document.getElementById('cart-cliente').onchange = this.handlePdvClienteChange.bind(this);
+                this.navigate('dashboard');
+            },
+
+            toggleDarkMode() {
+                state.isDark = !state.isDark;
+                document.documentElement.classList.toggle('dark');
+                document.getElementById('theme-icon').innerText = state.isDark ? '☀️' : '🌙';
+                if(state.currentView === 'dashboard') this.updateChart();
+            },
+
+            navigate(viewId) {
+                state.currentView = viewId;
+                document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
+                document.getElementById(`view-${viewId}`).classList.remove('hidden');
+                
+                const targetBtn = document.querySelector(`[data-target="${viewId}"]`);
+                if (targetBtn) {
+                    document.getElementById('view-title').innerText = targetBtn.innerText.split('\n')[0].trim();
+                } else {
+                    document.getElementById('view-title').innerText = "MarketPro";
+                }
+                
+                document.querySelectorAll('.nav-btn').forEach(b => {
+                    const active = b.dataset.target === viewId;
+                    b.classList.toggle('bg-slate-800', active);
+                    b.classList.toggle('text-emerald-400', active);
+                    b.classList.toggle('text-slate-400', !active);
+                });
+                this.renderView();
+            },
+
+            renderView() {
+                switch(state.currentView) {
+                    case 'dashboard': this.renderDashboard(); break;
+                    case 'produtos': this.renderProdutos(); break;
+                    case 'stock': this.renderStock(); break;
+                    case 'clientes': this.renderClientes(); break;
+                    case 'pdv': this.renderPDV(); break;
+                    case 'fidelidade': this.renderFidelidade(); break;
+                    case 'analytics': this.renderAnalytics(); break;
+                    case 'historico': this.renderHistorico(); break;
+                }
+            },
+
+            // --- DASHBOARD ---
+            renderDashboard() {
+                const faturacao = state.vendas.reduce((a, v) => a + v.total, 0);
+                const economia = state.vendas.reduce((a, v) => a + v.economia, 0);
+                const alertas = state.produtos.filter(p => p.stock <= 5).length;
+
+                document.getElementById('dash-faturacao').innerText = formatCur(faturacao);
+                document.getElementById('dash-vendas-count').innerText = state.vendas.length;
+                document.getElementById('dash-economia').innerText = formatCur(economia);
+                document.getElementById('dash-alertas').innerText = alertas;
+                this.updateChart();
+            },
+
+            updateChart() {
+                const ctx = document.getElementById('mainChart').getContext('2d');
+                if(state.chartInstance) state.chartInstance.destroy();
+                const colors = state.isDark ? { text: '#94a3b8', grid: '#334155' } : { text: '#64748b', grid: '#e2e8f0' };
+
+                state.chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'],
+                        datasets: [{
+                            label: 'Faturamento',
+                            data: [120, 190, 150, 280, 220, 350, state.vendas.reduce((a,v)=>a+v.total,0)],
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true, tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: colors.grid }, ticks: { color: colors.text } },
+                            x: { grid: { display: false }, ticks: { color: colors.text } }
+                        }
+                    }
+                });
+            },
+
+            // --- PRODUTOS ---
+            handleProdAdd(e) {
+                e.preventDefault();
+                const p = {
+                    id: Date.now(),
+                    nome: document.getElementById('p-nome').value,
+                    preco: parseFloat(document.getElementById('p-preco').value),
+                    desconto: parseInt(document.getElementById('p-desconto').value) || 0,
+                    stock: 0
+                };
+                state.produtos.push(p);
+                e.target.reset();
+                this.renderProdutos();
+                this.toast("Produto cadastrado!", "success");
+            },
+
+            renderProdutos() {
+                const list = document.getElementById('lista-produtos');
+                list.innerHTML = state.produtos.map(p => {
+                    const precoFinal = p.preco * (1 - p.desconto/100);
+                    return `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                        <td class="p-4 font-bold">${p.nome}</td>
+                        <td class="p-4 text-slate-400">${formatCur(p.preco)}</td>
+                        <td class="p-4"><span class="bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-2 py-1 rounded text-xs font-bold">-${p.desconto}%</span></td>
+                        <td class="p-4 text-emerald-600 dark:text-emerald-400 font-bold">${formatCur(precoFinal)}</td>
+                        <td class="p-4 text-center"><button onclick="app.delProd(${p.id})" class="text-red-500 hover:scale-125 transition-transform">🗑️</button></td>
+                    </tr>`;
+                }).join('');
+            },
+
+            delProd(id) {
+                state.produtos = state.produtos.filter(p => p.id !== id);
+                this.renderProdutos();
+            },
+
+            // --- STOCK ---
+            renderStock() {
+                const list = document.getElementById('lista-stock');
+                list.innerHTML = state.produtos.map(p => `
+                    <tr>
+                        <td class="p-4 font-bold">${p.nome}</td>
+                        <td class="p-4 text-center ${p.stock <= 5 ? 'text-red-500 font-black' : ''}">${p.stock} un</td>
+                        <td class="p-4">
+                            <div class="flex gap-2">
+                                <input type="number" id="stk-val-${p.id}" placeholder="+ Qtd" class="w-16 bg-slate-100 dark:bg-slate-800 rounded p-1 text-xs outline-none">
+                                <input type="number" id="desc-val-${p.id}" placeholder="% Desc" class="w-16 bg-slate-100 dark:bg-slate-800 rounded p-1 text-xs outline-none">
+                                <button onclick="app.updateStock(${p.id})" class="bg-slate-800 text-white px-3 py-1 rounded text-[10px] font-bold">Salvar</button>
+                            </div>
+                        </td>
+                    </tr>`).join('');
+            },
+
+            updateStock(id) {
+                const p = state.produtos.find(prod => prod.id === id);
+                const qtdVal = parseInt(document.getElementById(`stk-val-${id}`).value);
+                const descVal = document.getElementById(`desc-val-${id}`).value;
+
+                if(!isNaN(qtdVal)) p.stock += qtdVal;
+                if(descVal !== "") p.desconto = parseInt(descVal);
+                
+                this.renderStock();
+                this.toast("Produto atualizado!", "info");
+            },
+
+            // --- FIDELIDADE ---
+            renderFidelidade() {
+                const list = document.getElementById('lista-fidelidade');
+                let totalCashbackDistribuido = 0;
+                let totalPontosAtivos = 0;
+
+                list.innerHTML = state.clientes.map(c => {
+                    const pontos = c.pontos || 0;
+                    const cashback = c.cashback || 0;
+                    const totalGasto = c.totalGasto || 0;
+
+                    totalCashbackDistribuido += cashback;
+                    totalPontosAtivos += pontos;
+
+                    const descPontos = Math.floor(pontos / 100) * 10;
+
+                    return `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                        <td class="p-4 font-bold">
+                            <p>${c.nome}</p>
+                            <p class="text-xs text-slate-400 font-normal">${c.email}</p>
+                        </td>
+                        <td class="p-4">${formatCur(totalGasto)}</td>
+                        <td class="p-4 font-semibold text-blue-500">${pontos} pts</td>
+                        <td class="p-4 text-slate-500 dark:text-slate-400">${formatCur(descPontos)}</td>
+                        <td class="p-4 font-black text-emerald-600 dark:text-emerald-400">${formatCur(cashback)}</td>
+                    </tr>`;
+                }).join('');
+
+                document.getElementById('fid-total-cashback').innerText = formatCur(totalCashbackDistribuido);
+                document.getElementById('fid-total-pontos').innerText = `${totalPontosAtivos} pts`;
+            },
+
+            // --- CLIENTES ---
+            handleCliAdd(e) {
+                e.preventDefault();
+                state.clientes.push({ 
+                    id: Date.now(), 
+                    nome: document.getElementById('c-nome').value, 
+                    email: document.getElementById('c-email').value,
+                    pontos: 0,
+                    cashback: 0,
+                    totalGasto: 0
+                });
+                e.target.reset();
+                this.renderClientes();
+                this.toast("Cliente registrado!", "success");
+            },
+
+            renderClientes() {
+                document.getElementById('cont-clientes').innerHTML = state.clientes.map(c => `
+                    <div class="p-4 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                        <div><p class="font-bold">${c.nome}</p><p class="text-xs text-slate-500">${c.email}</p></div>
+                        <span class="text-xs text-slate-400">#${c.id.toString().slice(-4)}</span>
+                    </div>`).join('');
+                
+                document.getElementById('cart-cliente').innerHTML = '<option value="">Consumidor Final</option>' + 
+                    state.clientes.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+            },
+
+            handlePdvClienteChange() {
+                const clienteNome = document.getElementById('cart-cliente').value;
+                const optDiv = document.getElementById('pdv-fidelidade-opcoes');
+                
+                document.getElementById('usar-pontos-cb').checked = false;
+                document.getElementById('usar-cashback-cb').checked = false;
+
+                if (clienteNome) {
+                    const c = state.clientes.find(cli => cli.nome === clienteNome);
+                    if (c) {
+                        const pontos = c.pontos || 0;
+                        const cashback = c.cashback || 0;
+                        
+                        document.getElementById('pdv-pontos-disponiveis').innerText = pontos;
+                        const descPontos = Math.floor(pontos / 100) * 10;
+                        document.getElementById('pdv-pontos-valor').innerText = `- ${formatCur(descPontos)}`;
+                        document.getElementById('pdv-cashback-valor').innerText = `- ${formatCur(cashback)}`;
+                        
+                        document.getElementById('usar-pontos-cb').disabled = (descPontos <= 0);
+                        document.getElementById('usar-cashback-cb').disabled = (cashback <= 0);
+
+                        optDiv.classList.remove('hidden');
+                    } else {
+                        optDiv.classList.add('hidden');
+                    }
+                } else {
+                    optDiv.classList.add('hidden');
+                }
+                this.recalcularTotalPDV();
+            },
+
+            recalcularTotalPDV() {
+                let total = state.carrinho.reduce((a, i) => a + (i.preco * (1 - i.desconto/100) * i.qtd), 0);
+                const clienteNome = document.getElementById('cart-cliente').value;
+                
+                let descontoPontos = 0;
+                let descontoCashback = 0;
+
+                if (clienteNome) {
+                    const c = state.clientes.find(cli => cli.nome === clienteNome);
+                    if (c) {
+                        const usarPontos = document.getElementById('usar-pontos-cb').checked;
+                        const usarCashback = document.getElementById('usar-cashback-cb').checked;
+
+                        if (usarPontos) {
+                            const pontosDisponiveis = Math.floor((c.pontos || 0) / 100) * 10;
+                            descontoPontos = Math.min(pontosDisponiveis, total);
+                            total -= descontoPontos;
+                        }
+
+                        if (usarCashback) {
+                            descontoCashback = Math.min(c.cashback || 0, total);
+                            total -= descontoCashback;
+                        }
+                    }
+                }
+
+                document.getElementById('cart-total').innerText = formatCur(total);
+            },
+
+            // --- PDV ---
+            renderPDV() {
+                const cat = document.getElementById('pdv-catalogo');
+                cat.innerHTML = state.produtos.map(p => {
+                    const hasDiscount = p.desconto > 0;
+                    const precoFinal = p.preco * (1 - p.desconto/100);
+                    return `
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                        ${hasDiscount ? `<div class="absolute top-0 right-0 bg-blue-500 text-white text-[10px] px-2 py-1 font-bold">-${p.desconto}%</div>` : ''}
+                        <p class="font-bold text-sm mb-1">${p.nome}</p>
+                        <div class="flex items-center gap-2">
+                            <span class="text-emerald-600 dark:text-emerald-400 font-bold">${formatCur(precoFinal)}</span>
+                            ${hasDiscount ? `<span class="text-[10px] text-slate-400 line-through">${formatCur(p.preco)}</span>` : ''}
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-2">Estoque: ${p.stock}</p>
+                        <button onclick="app.addToCart(${p.id})" ${p.stock <= 0 ? 'disabled' : ''} class="mt-4 w-full border border-emerald-500 text-emerald-500 py-1 rounded text-xs font-bold hover:bg-emerald-500 hover:text-white transition-colors disabled:opacity-30">
+                            ${p.stock <= 0 ? 'Esgotado' : '+ Adicionar'}
+                        </button>
+                    </div>`;
+                }).join('');
+                this.renderCart();
+            },
+
+            addToCart(id) {
+                const prod = state.produtos.find(p => p.id === id);
+                const cartItem = state.carrinho.find(i => i.id === id);
+                const qtdInCart = cartItem ? cartItem.qtd : 0;
+
+                if (qtdInCart < prod.stock) {
+                    if (cartItem) cartItem.qtd++;
+                    else state.carrinho.push({ ...prod, qtd: 1 });
+                    this.renderCart();
+                } else {
+                    this.toast("Limite de estoque atingido!", "error");
+                }
+            },
+
+            renderCart() {
+                const list = document.getElementById('cart-items');
+                if(!state.carrinho.length) {
+                    list.innerHTML = '<div class="h-full flex flex-col items-center justify-center text-slate-600 opacity-50"><span class="text-4xl mb-2">🛒</span><p>Carrinho Vazio</p></div>';
+                    document.getElementById('cart-total').innerText = 'R$ 0,00';
+                    document.getElementById('cart-count').innerText = '0';
+                    document.getElementById('btn-finalizar').disabled = true;
+                    return;
+                }
+
+                let total = 0;
+                list.innerHTML = state.carrinho.map((item, idx) => {
+                    const price = item.preco * (1 - item.desconto/100);
+                    const sub = price * item.qtd;
+                    total += sub;
+                    return `
+                    <div class="bg-slate-800 p-3 rounded-lg flex justify-between items-center text-xs">
+                        <div><p class="font-bold">${item.nome}</p><p class="text-slate-400">${item.qtd}x de ${formatCur(price)}</p></div>
+                        <div class="text-right">
+                            <p class="font-bold text-emerald-400">${formatCur(sub)}</p>
+                            <button onclick="app.remFromCart(${idx})" class="text-[9px] text-red-400 uppercase font-bold">Remover</button>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                document.getElementById('cart-total').innerText = formatCur(total);
+                document.getElementById('cart-count').innerText = state.carrinho.length;
+                document.getElementById('btn-finalizar').disabled = false;
+                this.recalcularTotalPDV();
+            },
+
+            remFromCart(idx) {
+                state.carrinho.splice(idx, 1);
+                this.renderCart();
+            },
+
+            finalizarVenda() {
+                const originalTotal = state.carrinho.reduce((a, i) => a + (i.preco * (1 - i.desconto/100) * i.qtd), 0);
+                const clienteNome = document.getElementById('cart-cliente').value || "Consumidor Final";
+                
+                let totalFinal = originalTotal;
+                let economiaDescontoOriginal = state.carrinho.reduce((a, i) => a + (i.preco * (i.desconto/100) * i.qtd), 0);
+                
+                let pontosUtilizados = 0;
+                let cashbackUtilizado = 0;
+
+                const c = state.clientes.find(cli => cli.nome === clienteNome);
+                if (c) {
+                    c.pontos = c.pontos || 0;
+                    c.cashback = c.cashback || 0;
+                    c.totalGasto = c.totalGasto || 0;
+
+                    const usarPontos = document.getElementById('usar-pontos-cb').checked;
+                    const usarCashback = document.getElementById('usar-cashback-cb').checked;
+
+                    if (usarPontos) {
+                        const descMax = Math.floor(c.pontos / 100) * 10;
+                        const descAplicado = Math.min(descMax, totalFinal);
+                        totalFinal -= descAplicado;
+                        pontosUtilizados = Math.round((descAplicado / 10) * 100);
+                    }
+
+                    if (usarCashback) {
+                        const cashAplicado = Math.min(c.cashback, totalFinal);
+                        totalFinal -= cashAplicado;
+                        cashbackUtilizado = cashAplicado;
+                    }
+
+                    // Deduzir benefícios utilizados
+                    c.pontos -= pontosUtilizados;
+                    c.cashback -= cashbackUtilizado;
+
+                    // Acumular novos benefícios (R$ 1 = 1 ponto, 5% de Cashback)
+                    const pontosGanhos = Math.floor(totalFinal);
+                    const cashbackGanho = parseFloat((totalFinal * 0.05).toFixed(2));
+
+                    c.pontos += pontosGanhos;
+                    c.cashback += cashbackGanho;
+                    c.totalGasto += totalFinal;
+
+                    this.toast(`Fidelidade: +${pontosGanhos} pts e +${formatCur(cashbackGanho)} cashback!`, "info");
+                }
+
+                state.carrinho.forEach(item => {
+                    const p = state.produtos.find(prod => prod.id === item.id);
+                    if (p) p.stock -= item.qtd;
+                });
+
+                state.vendas.push({
+                    id: Date.now(),
+                    data: new Date().toLocaleString('pt-BR'),
+                    cliente: clienteNome,
+                    total: totalFinal,
+                    economia: economiaDescontoOriginal + (originalTotal - totalFinal),
+                    itensDetalhados: state.carrinho.map(item => ({
+                        id: item.id,
+                        nome: item.nome,
+                        preco: item.preco * (1 - item.desconto/100),
+                        qtd: item.qtd
+                    }))
+                });
+
+                state.carrinho = [];
+                
+                // Resetar UI de fidelidade do PDV
+                document.getElementById('usar-pontos-cb').checked = false;
+                document.getElementById('usar-cashback-cb').checked = false;
+                document.getElementById('pdv-fidelidade-opcoes').classList.add('hidden');
+
+                this.toast("Venda finalizada!", "success");
+                this.navigate('dashboard');
+            },
+
+            // --- ANALYTICS ---
+            renderAnalytics() {
+                const totalFaturamento = state.vendas.reduce((a, v) => a + v.total, 0);
+                const totalVendas = state.vendas.length;
+                const ticketMedio = totalVendas > 0 ? totalFaturamento / totalVendas : 0;
+                
+                const vendasComCliente = state.vendas.filter(v => v.cliente !== "Consumidor Final").length;
+                const taxaIdentificacao = totalVendas > 0 ? (vendasComCliente / totalVendas) * 100 : 0;
+                const custoFidelidade = state.vendas.reduce((a, v) => a + v.economia, 0);
+
+                document.getElementById('analytics-ticket-medio').innerText = formatCur(ticketMedio);
+                document.getElementById('analytics-taxa-identificacao').innerText = `${taxaIdentificacao.toFixed(1)}%`;
+                document.getElementById('analytics-custo-fidelidade').innerText = formatCur(custoFidelidade);
+
+                const productSalesMap = {};
+                state.produtos.forEach(p => productSalesMap[p.nome] = 0);
+                
+                state.vendas.forEach(v => {
+                    if (v.itensDetalhados) {
+                        v.itensDetalhados.forEach(item => {
+                            if (productSalesMap[item.nome] !== undefined) {
+                                productSalesMap[item.nome] += item.qtd;
+                            } else {
+                                productSalesMap[item.nome] = item.qtd;
+                            }
+                        });
+                    }
+                });
+
+                const productLabels = Object.keys(productSalesMap);
+                const productData = Object.values(productSalesMap);
+
+                this.generateAnalyticsInsights(productSalesMap, totalFaturamento, taxaIdentificacao);
+
+                const ctxProducts = document.getElementById('analyticsProductsChart').getContext('2d');
+                if(state.chartProductsInstance) state.chartProductsInstance.destroy();
+
+                state.chartProductsInstance = new Chart(ctxProducts, {
+                    type: 'doughnut',
+                    data: {
+                        labels: productLabels,
+                        datasets: [{
+                            data: productData,
+                            backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#64748b'],
+                            borderWidth: state.isDark ? 2 : 1,
+                            borderColor: state.isDark ? '#1e293b' : '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: state.isDark ? '#94a3b8' : '#64748b' }
+                            }
+                        }
+                    }
+                });
+
+                const ctxFinancials = document.getElementById('analyticsFinancialsChart').getContext('2d');
+                if(state.chartFinancialsInstance) state.chartFinancialsInstance.destroy();
+
+                const colors = state.isDark ? { text: '#94a3b8', grid: '#334155' } : { text: '#64748b', grid: '#e2e8f0' };
+
+                state.chartFinancialsInstance = new Chart(ctxFinancials, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Faturamento Líquido', 'Descontos / Fidelidade'],
+                        datasets: [{
+                            label: 'Valores (R$)',
+                            data: [totalFaturamento, custoFidelidade],
+                            backgroundColor: ['#10b981', '#ef4444'],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { grid: { color: colors.grid }, ticks: { color: colors.text } },
+                            x: { grid: { display: false }, ticks: { color: colors.text } }
+                        }
+                    }
+                });
+            },
+
+            generateAnalyticsInsights(productSalesMap, totalFaturamento, taxaIdentificacao) {
+                const insightsList = document.getElementById('analytics-insights');
+                const insights = [];
+
+                const lowStockProds = state.produtos.filter(p => p.stock <= 5);
+                if (lowStockProds.length > 0) {
+                    insights.push(`⚠️ <strong>Giro de Estoque Crítico:</strong> O produto <span class="text-red-500 font-bold">${lowStockProds[0].nome}</span> possui apenas ${lowStockProds[0].stock} un. Estoque de risco. Sugerimos reposição.`);
+                } else {
+                    insights.push(`✅ <strong>Saúde de Estoque:</strong> Ótimo! Todos os produtos cadastrados estão com estoque saudável (acima de 5 unidades).`);
+                }
+
+                let bestProduct = "";
+                let maxSales = 0;
+                for (const prod in productSalesMap) {
+                    if (productSalesMap[prod] > maxSales) {
+                        maxSales = productSalesMap[prod];
+                        bestProduct = prod;
+                    }
+                }
+                if (bestProduct && maxSales > 0) {
+                    insights.push(`🏆 <strong>Item Destaque:</strong> O produto <span class="text-emerald-500 font-bold">${bestProduct}</span> é o seu campeão absoluto de giro com ${maxSales} unidades comercializadas.`);
+                }
+
+                if (taxaIdentificacao < 60) {
+                    insights.push(`💡 <strong>Alavanca de Crescimento:</strong> Apenas ${taxaIdentificacao.toFixed(0)}% das vendas identificaram cliente. Aumente o uso de Cashback no PDV para melhorar a taxa de retenção.`);
+                } else {
+                    insights.push(`📈 <strong>Retenção Saudável:</strong> Ótimo engajamento! ${taxaIdentificacao.toFixed(0)}% das transações estão pontuando clientes cadastrados.`);
+                }
+
+                insightsList.innerHTML = insights.map(ins => `<li class="flex items-start gap-2 bg-slate-50 dark:bg-slate-800/30 p-3 rounded-lg border border-slate-100 dark:border-slate-800/80 transition-colors">${ins}</li>`).join('');
+            },
+
+            // --- HISTORICO ---
+            renderHistorico() {
+                const filtro = document.getElementById('filtro-cliente').value.toLowerCase();
+                const filtered = state.vendas.filter(v => v.cliente.toLowerCase().includes(filtro));
+                document.getElementById('lista-vendas').innerHTML = filtered.map(v => `
+                    <tr><td class="p-4 text-xs">${v.data}</td><td class="p-4 font-bold">${v.cliente}</td><td class="p-4 font-black text-emerald-600">${formatCur(v.total)}</td></tr>`).join('');
+            },
+
+            exportarCSV() {
+                const csv = "Data,Cliente,Total,Economia\n" + state.vendas.map(v => `${v.data},${v.cliente},${v.total.toFixed(2)},${v.economia.toFixed(2)}`).join("\n");
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'vendas_marketpro.csv'; a.click();
+            },
+
+            toast(msg, type) {
+                const cont = document.getElementById('toast-container');
+                const t = document.createElement('div');
+                const colors = { success: 'bg-emerald-500', info: 'bg-blue-600', error: 'bg-red-500' };
+                t.className = `${colors[type]} text-white px-6 py-3 rounded-xl shadow-xl mb-2 font-bold text-sm transform transition-all translate-x-10 opacity-0`;
+                t.innerText = msg;
+                cont.appendChild(t);
+                setTimeout(() => { t.classList.remove('translate-x-10', 'opacity-0'); }, 10);
+                setTimeout(() => { t.classList.add('opacity-0'); setTimeout(() => t.remove(), 500); }, 3000);
+            }
+        };
+
+        window.onload = () => app.init();
+    </script>
+</body>
+</html>
